@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { Activity, ArrowUpRight, Bell, ChevronRight, CircleDollarSign, Gift, Landmark, ShieldCheck, Sparkles, WalletCards } from "lucide-react";
 import { holdings, marketSummary, markets } from "@/lib/demo-data";
 
@@ -64,16 +64,39 @@ function WeekendView({ goTo }: { goTo: (view: View) => void }) {
 
 function GapView() {
   const [ticker, setTicker] = useState("NVDA");
-  const summary = useMemo(() => marketSummary(ticker), [ticker]);
+  const [summary, setSummary] = useState(() => marketSummary("NVDA"));
+  const [marketState, setMarketState] = useState<"loading" | "live" | "demo" | "error">("loading");
+
+  useEffect(() => {
+    const controller = new AbortController();
+    setMarketState("loading");
+    fetch(`/api/market?ticker=${encodeURIComponent(ticker)}`, { signal: controller.signal })
+      .then(async (response) => {
+        const result = await response.json();
+        if (!response.ok) throw new Error(result.error ?? "Market data request failed");
+        setSummary(result);
+        setMarketState(result.source === "live-binance-rwa" ? "live" : "demo");
+      })
+      .catch((error) => {
+        if (error instanceof DOMException && error.name === "AbortError") return;
+        setSummary(marketSummary(ticker));
+        setMarketState("error");
+      });
+    return () => controller.abort();
+  }, [ticker]);
+
   const last = summary.issuers[0].price;
   const maxDepth = summary.issuers.reduce((sum, item) => sum + item.depthUsd, 0);
+  const issuerDifference = summary.issuers.length > 1
+    ? Math.abs(summary.issuers[0].price - summary.issuers[1].price) / summary.implied * 100
+    : null;
   return <>
     <section className="weekend-banner compact"><div><span className="status-pill"><span/> Weekend mode</span><p>Compare the closed reference with markets trading now.</p></div><div className="countdown"><small>MARKET OPENS IN</small><strong>1D 08H 42M</strong></div></section>
-    <main className="content"><div className="page-heading"><div><span className="eyebrow">LIVE MARKET INTELLIGENCE</span><h1>Gap Monitor</h1></div><span className="updated">Updated 8 sec ago</span></div>
+    <main className="content"><div className="page-heading"><div><span className="eyebrow">LIVE MARKET INTELLIGENCE</span><h1>Gap Monitor</h1></div><span className={`data-source ${marketState}`}>{marketState === "live" ? "Live · Binance RWA" : marketState === "loading" ? "Refreshing…" : marketState === "error" ? "Live data unavailable · Demo shown" : "Recorded demo"}</span></div>
       <div className="ticker-tabs">{Object.keys(markets).map((item) => <button key={item} onClick={() => setTicker(item)} className={ticker===item ? "active" : ""}>{item}</button>)}</div>
       <section className="gap-hero card"><div className="gap-stats"><div><small>FRIDAY REFERENCE</small><strong>${summary.reference.toFixed(2)}</strong><span>Market closed</span></div><div><small>LAST ONCHAIN TRADE</small><strong>${last.toFixed(2)}</strong><span className={summary.gap >= 0 ? "gain" : "loss"}>{summary.gap >= 0 ? "+" : ""}{summary.gap.toFixed(2)}%</span></div></div><div className="implied"><small>IMPLIED MONDAY OPEN</small><strong>${summary.implied.toFixed(2)}</strong><span className="confidence">{summary.confidence} confidence</span><p>Liquidity-weighted across issuers</p></div></section>
-      <section className="monitor-grid"><article className="card"><div className="section-heading"><div><h2>{ticker} across the weekend</h2><p>Normalized issuer prices against Friday&apos;s close.</p></div></div><PriceChart values={summary.history} reference={summary.reference}/><div className="legend"><span><i className="blue"/>Tokenized price</span><span><i className="dashed"/>Friday reference</span></div></article><article className="card why-card"><span className="eyebrow">WHY {summary.confidence.toUpperCase()} CONFIDENCE?</span><h2>The markets broadly agree.</h2><div className="metric-row"><span>Total quoted depth</span><strong>${(maxDepth/1000).toFixed(1)}k</strong></div><div className="metric-row"><span>Issuer difference</span><strong>{(Math.abs(summary.issuers[0].price-summary.issuers[1].price)/summary.implied*100).toFixed(2)}%</strong></div><div className="metric-row"><span>Trade guardrail</span><strong>1.00%</strong></div><p className="note">The Guardian will only act when simulation passes and confidence is not low.</p></article></section>
-      <section className="card issuer-table"><div className="section-heading"><div><h2>Issuer comparison</h2><p>Same underlying, different onchain markets.</p></div></div>{summary.issuers.map((issuer) => <div className="issuer-row" key={issuer.issuer}><div><span className="token-mark">{issuer.issuer[0]}</span><strong>{ticker} · {issuer.issuer}</strong></div><div><small>PRICE</small><strong className="mono">${issuer.price.toFixed(2)}</strong></div><div><small>DEPTH WITHIN 1%</small><strong className="mono">${issuer.depthUsd.toLocaleString()}</strong></div><span className="confidence">Included</span></div>)}</section>
+      <section className="monitor-grid"><article className="card"><div className="section-heading"><div><h2>{ticker} across the weekend</h2><p>Normalized issuer prices against Friday&apos;s close.</p></div></div><PriceChart values={summary.history} reference={summary.reference}/><div className="legend"><span><i className="blue"/>Tokenized price</span><span><i className="dashed"/>Friday reference</span></div></article><article className="card why-card"><span className="eyebrow">WHY {summary.confidence.toUpperCase()} CONFIDENCE?</span><h2>{summary.confidence === "Low" ? "Liquidity depth is not verified yet." : "The markets broadly agree."}</h2><div className="metric-row"><span>Total quoted depth</span><strong>{maxDepth ? `$${(maxDepth/1000).toFixed(1)}k` : "Pending"}</strong></div><div className="metric-row"><span>Issuer difference</span><strong>{issuerDifference === null ? "One issuer" : `${issuerDifference.toFixed(2)}%`}</strong></div><div className="metric-row"><span>Trade guardrail</span><strong>1.00%</strong></div><p className="note">The Guardian will not act until executable quote depth is connected, simulation passes and confidence is not low.</p></article></section>
+      <section className="card issuer-table"><div className="section-heading"><div><h2>Issuer comparison</h2><p>Same underlying, different onchain markets.</p></div></div>{summary.issuers.map((issuer) => <div className="issuer-row" key={issuer.issuer}><div><span className="token-mark">{issuer.issuer[0]}</span><strong>{ticker} · {issuer.issuer}</strong></div><div><small>PRICE</small><strong className="mono">${issuer.price.toFixed(2)}</strong></div><div><small>DEPTH WITHIN 1%</small><strong className="mono">{issuer.depthUsd ? `$${issuer.depthUsd.toLocaleString()}` : "Pending quote"}</strong></div><span className="confidence">Included</span></div>)}</section>
       <p className="disclaimer">This is a weekend estimate, not a promise of Monday&apos;s open. Trades are spot-only and subject to liquidity, issuer and custody risk. Not financial advice.</p>
     </main>
   </>;

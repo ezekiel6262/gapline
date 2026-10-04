@@ -6,6 +6,7 @@ import "@fontsource/ibm-plex-sans/700.css";
 import "@fontsource/ibm-plex-mono/400.css";
 import "@fontsource/ibm-plex-mono/500.css";
 import "./globals.css";
+import "./live.css";
 
 export const metadata: Metadata = {
   title: "Gapline — Your broker sleeps. Your weekend does not.",

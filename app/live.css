@@ -1,0 +1,23 @@
+.data-source {
+  border-radius: 999px;
+  background: #e8e9ec;
+  color: #3f4652;
+  font-size: 12px;
+  font-weight: 600;
+  padding: 7px 11px;
+}
+
+.data-source.live {
+  background: #e3eafb;
+  color: #1d4fb8;
+}
+
+.data-source.error {
+  background: #fbe3d3;
+  color: #9a3f08;
+}
+
+.data-source.loading {
+  background: #fdefc8;
+  color: #7a4b00;
+}

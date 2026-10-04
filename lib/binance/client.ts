@@ -1,3 +1,5 @@
+import { createHmac } from "node:crypto";
+
 const BASE_URL = "https://web3.binance.com/build";
 
 export type BinanceEnvelope<T> = {
@@ -27,6 +29,25 @@ export type RequestSigner = (input: {
   body: string;
   timestamp: string;
 }) => Promise<string>;
+
+export function createHmacSigner(secret: string): RequestSigner {
+  return async ({ method, path, query, body, timestamp }) => {
+    const requestPath = `${path}${query ? `?${query}` : ""}`;
+    const prehash = `${timestamp}${method}${requestPath}${body}`;
+    return createHmac("sha256", secret).update(prehash).digest("base64");
+  };
+}
+
+export function createBinanceWeb3ClientFromEnv() {
+  const apiKey = process.env.BINANCE_WEB3_API_KEY;
+  const apiSecret = process.env.BINANCE_WEB3_API_SECRET;
+
+  if (!apiKey || !apiSecret) {
+    throw new Error("Binance Web3 API credentials are not configured");
+  }
+
+  return new BinanceWeb3Client(apiKey, createHmacSigner(apiSecret));
+}
 
 export class BinanceWeb3Client {
   constructor(

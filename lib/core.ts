@@ -18,8 +18,9 @@ export function confidence(prices: IssuerPrice[]) {
     ? ((Math.max(...values) - Math.min(...values)) / midpoint) * 100
     : 0;
 
-  if (totalDepth > 50_000 && issuerDifference < 0.5) return "High" as const;
-  if (totalDepth > 10_000 || issuerDifference < 1.5) return "Medium" as const;
+  const canCompareIssuers = prices.length > 1;
+  if (totalDepth > 50_000 && canCompareIssuers && issuerDifference < 0.5) return "High" as const;
+  if (totalDepth > 10_000 || (canCompareIssuers && issuerDifference < 1.5)) return "Medium" as const;
   return "Low" as const;
 }
 
