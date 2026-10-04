@@ -5,6 +5,7 @@ import { confidence, impliedOpen, percentChange, type IssuerPrice } from "@/lib/
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
+export const preferredRegion = "sin1";
 
 export async function GET(request: Request) {
   const ticker = new URL(request.url).searchParams.get("ticker")?.toUpperCase() ?? "NVDA";
