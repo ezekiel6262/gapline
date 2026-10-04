@@ -32,7 +32,7 @@ export type RequestSigner = (input: {
 
 export function createHmacSigner(secret: string): RequestSigner {
   return async ({ method, path, query, body, timestamp }) => {
-    const requestPath = `${path}${query ? `?${query}` : ""}`;
+    const requestPath = `/build${path}${query ? `?${query}` : ""}`;
     const prehash = `${timestamp}${method}${requestPath}${body}`;
     return createHmac("sha256", secret).update(prehash).digest("base64");
   };
