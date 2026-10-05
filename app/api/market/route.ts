@@ -32,8 +32,8 @@ async function publicMarketSummary(ticker: string, authenticatedError?: unknown)
         contractAddress: market.contractAddress,
       },
       provenance: {
-        catalog: "Binance public RWA catalog",
-        price: "Binance public spot market",
+        catalog: "Verified allowlist from Binance public RWA catalog",
+        price: "Binance market-data-only public API",
         reference: `Binance public spot Friday close (${market.referenceUpdatedAt})`,
       },
       authenticatedApiStatus: authenticatedError ? "compliance-restricted" : "not-configured",

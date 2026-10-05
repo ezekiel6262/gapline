@@ -1,6 +1,6 @@
-const BSTOCK_CATALOG_URL =
-  "https://www.binance.com/bapi/defi/v1/public/wallet-direct/buw/wallet/market/token/rwa/stock/detail/list/ai?type=3";
-const BINANCE_SPOT_API_URL = "https://api.binance.com/api/v3";
+// Binance's market-data-only host is intended for public endpoints and is
+// available from server regions where the main exchange host returns HTTP 451.
+const BINANCE_SPOT_API_URL = "https://data-api.binance.vision/api/v3";
 
 type CatalogAsset = {
   chainId: string;
@@ -10,10 +10,15 @@ type CatalogAsset = {
   cs: string;
 };
 
-type CatalogResponse = {
-  code: string;
-  data?: CatalogAsset[];
-};
+// Verified against Binance's public bStocks RWA catalog. Keeping the small UI
+// allowlist local avoids treating a geo-restricted product endpoint as a
+// runtime dependency; prices still come from Binance's live public market API.
+const BSTOCKS: CatalogAsset[] = [
+  { chainId: "56", contractAddress: "0x02fca66c1d1afb4e2a7884261eb00f63598a7436", symbol: "NVDAB", ticker: "NVDA", cs: "NVDABUSDT" },
+  { chainId: "56", contractAddress: "0x5b1910eaad6450e50f816082aa078c41f10c292f", symbol: "TSLAB", ticker: "TSLA", cs: "TSLABUSDT" },
+  { chainId: "56", contractAddress: "0x431a3bee82e2ca41e49895cbece5bb0f76a89b7a", symbol: "AAPLB", ticker: "AAPL", cs: "AAPLBUSDT" },
+  { chainId: "56", contractAddress: "0x7138b48df7d98d7e3cc221bfe7192d0a178182d8", symbol: "SPYB", ticker: "SPY", cs: "SPYBUSDT" },
+];
 
 type TickerResponse = {
   lastPrice: string;
@@ -37,12 +42,7 @@ async function getJson<T>(url: string): Promise<T> {
 }
 
 export async function getPublicBstockMarket(ticker: string) {
-  const catalog = await getJson<CatalogResponse>(BSTOCK_CATALOG_URL);
-  if (catalog.code !== "000000" || !catalog.data) {
-    throw new Error("Public Binance bStocks catalog returned an invalid response");
-  }
-
-  const asset = catalog.data.find(
+  const asset = BSTOCKS.find(
     (item) => item.chainId === "56" && item.ticker.toUpperCase() === ticker.toUpperCase() && item.cs,
   );
   if (!asset) return null;
