@@ -91,10 +91,11 @@ function Sparkline({ values, loss = false }: { values: readonly number[]; loss?:
 }
 
 function PriceChart({ values, reference }: { values: number[]; reference: number }) {
+  if (values.length < 2) return <div className="empty-state compact">Waiting for live market history.</div>;
   const min = Math.min(...values) * .998, max = Math.max(...values) * 1.002, spread = max - min || 1;
   const line = values.map((value, index) => `${(index / (values.length - 1)) * 720},${180 - ((value - min) / spread) * 140}`).join(" ");
   const refY = 180 - ((reference - min) / spread) * 140;
-  return <div className="chart-wrap"><svg viewBox="0 0 720 210" className="price-chart" role="img" aria-label="Weekend price history"><defs><linearGradient id="area" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stopColor="#1D5AD8" stopOpacity=".2"/><stop offset="1" stopColor="#1D5AD8" stopOpacity="0"/></linearGradient></defs><line x1="0" x2="720" y1={refY} y2={refY} stroke="#8A919C" strokeDasharray="7 8"/><polygon points={`0,190 ${line} 720,190`} fill="url(#area)"/><polyline points={line} fill="none" stroke="#1D5AD8" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round"/></svg><div className="chart-labels"><span>FRI 4PM</span><span>SAT 12PM</span><span>SUN 12PM</span><span>NOW</span></div></div>;
+  return <div className="chart-wrap"><svg viewBox="0 0 720 210" className="price-chart" role="img" aria-label="Recent daily token market closes and current price"><defs><linearGradient id="area" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stopColor="#1D5AD8" stopOpacity=".2"/><stop offset="1" stopColor="#1D5AD8" stopOpacity="0"/></linearGradient></defs><line x1="0" x2="720" y1={refY} y2={refY} stroke="#8A919C" strokeDasharray="7 8"/><polygon points={`0,190 ${line} 720,190`} fill="url(#area)"/><polyline points={line} fill="none" stroke="#1D5AD8" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round"/></svg><div className="chart-labels"><span>RECENT DAILY TOKEN CLOSES (UTC)</span><span>NOW</span></div></div>;
 }
 
 function WeekendView({ goTo, holdings: savedHoldings, onAddHolding }: { goTo: (view: View) => void; holdings: Holding[]; onAddHolding: () => void }) {
@@ -122,6 +123,10 @@ function WeekendView({ goTo, holdings: savedHoldings, onAddHolding }: { goTo: (v
   const fridayValue = covered.reduce((sum, holding) => sum + holding.qty * holding.friday, 0);
   const currentValue = covered.reduce((sum, holding) => sum + holding.qty * holding.now!, 0);
   const change = currentValue - fridayValue;
+  const historyLength = covered.length ? Math.min(...covered.map(item=>item.spark.length)) : 0;
+  const portfolioHistory = Array.from({length:historyLength},(_,index)=>covered.reduce((sum,item)=>sum+item.qty*item.spark[item.spark.length-historyLength+index],0));
+  const biggest = [...covered].sort((a,b)=>Math.abs((b.now!-b.friday)/b.friday)-Math.abs((a.now!-a.friday)/a.friday))[0];
+  const biggestMove = biggest ? (biggest.now!-biggest.friday)/biggest.friday*100 : null;
   return <>
     <MarketBanner/>
     <main className="content">
@@ -129,13 +134,13 @@ function WeekendView({ goTo, holdings: savedHoldings, onAddHolding }: { goTo: (v
       <section className="overview-grid">
         <article className="card portfolio-card">
           <div className="card-top"><div><span className="muted">Live covered portfolio value</span><div className="hero-number">${currentValue.toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})}</div><span className={change>=0?"gain":"loss"}>{change>=0?"+":""}${change.toFixed(2)} · {(fridayValue ? change/fridayValue*100 : 0).toFixed(2)}% since Friday token-market close</span></div><div className="live"><span/> {covered.length?'LIVE':'LOADING'}</div></div>
-          <PriceChart values={[23982,24040,23991,24132,24220,24195,24301,currentValue]} reference={fridayValue}/>
+          <PriceChart values={portfolioHistory} reference={fridayValue}/>
         </article>
         <article className="guardian-card">
-          <div className="card-top"><div className="guardian-title"><ShieldCheck/><span>Weekend Guardian</span></div><span className="live light"><span/> LIVE</span></div>
-          <p className="guardian-kicker">LATEST DEMO · SIMULATION ONLY</p>
-          <h2>TSLA sleeve protection previewed</h2>
-          <p>Your −3% rule fired in the demo. Policy limits passed; a live quote and transaction simulation are still required.</p>
+          <div className="card-top"><div className="guardian-title"><ShieldCheck/><span>Weekend Guardian</span></div><span className="live light">LOCKED</span></div>
+          <p className="guardian-kicker">REVIEWABLE POLICIES · NO AUTOMATIC TRADES</p>
+          <h2>Protection starts with your rules</h2>
+          <p>Approve a capped policy, then inspect its preflight. No funds move without a valid quote, passing simulation and wallet authorization.</p>
           <div className="action-stats"><div><small>MAX IMPACT</small><strong>1.00%</strong></div><div><small>STATUS</small><strong>Policy preview</strong></div></div>
           <button onClick={() => goTo("Guardian")} className="dark-button">Open Guardian <ChevronRight size={17}/></button>
         </article>
@@ -146,7 +151,7 @@ function WeekendView({ goTo, holdings: savedHoldings, onAddHolding }: { goTo: (v
           const move = holding.now ? ((holding.now-holding.friday)/holding.friday)*100 : null;
           return <tr key={holding.ticker} onClick={() => holding.now && goTo("Gap Monitor")} className={holding.now ? "clickable" : ""}><td><strong>{holding.ticker}</strong><span>{holding.company}</span></td><td className="mono">{holding.qty}</td><td className="mono">${holding.friday.toFixed(2)}</td><td className="mono">{holding.now ? `$${holding.now.toFixed(2)}` : "—"}</td><td className={`mono ${move !== null && move >= 0 ? "gain" : "loss"}`}>{move === null ? "—" : `${move >= 0 ? "+" : ""}${move.toFixed(2)}%`}</td><td>{holding.issuer ? <span className="issuer">{holding.issuer}</span> : <span className="not-covered">Not covered</span>}</td><td><Sparkline values={holding.spark} loss={move !== null && move < 0}/></td><td><ChevronRight size={18}/></td></tr>})}</tbody></table></div>
       </section>
-      <section className="lower-grid"><article className="gap-card"><div><span className="eyebrow">BIGGEST WEEKEND GAP</span><h2>TSLA is <span className="loss">−3.31%</span> below Friday</h2><p>Recorded example—open Gap Monitor for the live market.</p></div><button onClick={() => goTo("Gap Monitor")} className="primary">See the live gap</button></article><article className="card quick-card"><span className="eyebrow">USE YOUR TOKENS NOW</span><div className="quick-actions"><button onClick={()=>goTo("Money")}><CircleDollarSign/>Cash out<span>Turn a sleeve into USDT</span></button><button onClick={()=>goTo("Money")}><Gift/>Send a gift<span>Share a piece of a stock</span></button></div></article></section>
+      <section className="lower-grid"><article className="gap-card"><div><span className="eyebrow">LARGEST LIVE TOKEN GAP</span><h2>{biggest ? <>{biggest.ticker} · <span className={biggestMove!>=0?'gain':'loss'}>{biggestMove!>=0?'+':''}{biggestMove!.toFixed(2)}%</span> since Friday</> : 'Waiting for live prices'}</h2><p>Compared with Friday’s token-market close, not the brokerage close.</p></div><button onClick={() => goTo("Gap Monitor")} className="primary">See the live gap</button></article><article className="card quick-card"><span className="eyebrow">PLAN YOUR NEXT MOVE</span><div className="quick-actions"><button onClick={()=>goTo("Money")}><CircleDollarSign/>Cash out<span>Plan a sleeve conversion</span></button><button onClick={()=>goTo("Money")}><Gift/>Send a gift<span>Prepare a stock gift</span></button></div></article></section>
       <p className="disclaimer">Weekend estimates use tokenized-stock markets and may not predict the next traditional-market open. Tokenized stocks are not the same as brokerage shares. Not financial advice.</p>
     </main>
   </>;
