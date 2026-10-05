@@ -83,3 +83,4 @@
   .score-row { grid-template-columns: 1fr 1fr; gap: 12px; }
   .module-page { padding-top: 24px; }
 }
+@media(max-width:1000px){body{padding-bottom:72px}.mobile-nav{position:fixed;z-index:30;bottom:0;left:0;right:0;height:68px;background:#fff;border-top:1px solid var(--line);display:grid;grid-template-columns:repeat(6,1fr)}.mobile-nav button{border:0;border-top:3px solid transparent;background:#fff;color:var(--muted);font-size:11px}.mobile-nav button.active{color:var(--ink);border-color:var(--yellow);font-weight:600}.page-heading .secondary{display:inline-flex}}

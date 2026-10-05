@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useUser, SignInButton, UserButton } from '@clerk/nextjs';
 import { Activity, Bell, Check, ChevronRight, CircleDollarSign, Gift, Landmark, Link2, Plus, ShieldCheck, Sparkles, Target, WalletCards, X } from "lucide-react";
 import { holdings as demoHoldings, marketSummary, markets } from "@/lib/demo-data";
+import MoneyPlans, { type MoneyPlan } from './money-plans';
 
 type View = "Weekend" | "Gap Monitor" | "Guardian" | "Money" | "Calls" | "Scorecard";
 type Holding = { ticker: string; company: string; qty: number; friday: number; now: number | null; issuer: string | null; spark: readonly number[] };
@@ -14,6 +15,7 @@ function useStoredState<T>(key: string, initial: T) {
   const { user, isLoaded } = useUser();
   const [value, setValue] = useState<T>(initial);
   const [ready, setReady] = useState(false);
+  const [loadedOwner, setLoadedOwner] = useState<string | null>(null);
   useEffect(() => {
     if (!isLoaded) return;
     let cancelled = false;
@@ -29,7 +31,7 @@ function useStoredState<T>(key: string, initial: T) {
           if (response.ok) { const result = await response.json(); if (result.value !== null) next = result.value as T; }
         }
       } catch { /* Keep the local fallback when offline. */ }
-      if (!cancelled) { setValue(next); setReady(true); }
+      if (!cancelled) { setValue(next); setLoadedOwner(user?.id ?? 'guest'); setReady(true); }
     };
     void load();
     return () => { cancelled = true; };
@@ -37,7 +39,7 @@ function useStoredState<T>(key: string, initial: T) {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [key, user?.id, isLoaded]);
   useEffect(() => {
-    if (!ready) return;
+    if (!ready || loadedOwner !== (user?.id ?? 'guest')) return;
     window.localStorage.setItem(`gapline:v2:${user?.id ?? 'guest'}:${key}`, JSON.stringify(value));
     if (!user) return;
     const controller = new AbortController();
@@ -45,7 +47,7 @@ function useStoredState<T>(key: string, initial: T) {
       void fetch(`/api/state/${key}`, { method:'PUT', headers:{'Content-Type':'application/json'},body:JSON.stringify({value}),signal:controller.signal }).catch(()=>{});
     }, 400);
     return () => { window.clearTimeout(timer); controller.abort(); };
-  }, [key, value, ready, user?.id]);
+  }, [key, value, ready, loadedOwner, user?.id]);
   return [value, setValue] as const;
 }
 
@@ -78,8 +80,9 @@ function marketClock(date: Date) {
 }
 
 function MarketBanner({ compact=false }: { compact?: boolean }) {
-  const [clock,setClock]=useState(()=>marketClock(new Date()));
-  useEffect(()=>{ const id=window.setInterval(()=>setClock(marketClock(new Date())),30_000); return()=>window.clearInterval(id); },[]);
+  const [clock,setClock]=useState<ReturnType<typeof marketClock>|null>(null);
+  useEffect(()=>{setClock(marketClock(new Date())); const id=window.setInterval(()=>setClock(marketClock(new Date())),30_000); return()=>window.clearInterval(id); },[]);
+  if(!clock) return <section className={`weekend-banner ${compact?'compact':''}`}><p>Loading market session clock…</p></section>;
   return <section className={`weekend-banner ${compact?"compact":""}`}><div><span className="status-pill"><span/> {clock.isOpen?"US market open":"Weekend mode"}</span><p>{clock.isOpen?"Traditional and tokenized markets are trading together.":compact?"Compare the closed reference with markets trading now.":"US markets are closed. Your portfolio is still moving onchain."}</p></div><div className="countdown"><small>{clock.isOpen?"MARKET CLOSES IN":"MARKET OPENS IN"}</small><strong>{clock.countdown}</strong>{compact?null:<span>{clock.isOpen?"Today, 4:00pm New York":"Next session, 9:30am New York"}</span>}</div></section>;
 }
 
@@ -240,6 +243,12 @@ function GuardianView({ policies, setPolicies }: { policies: Policy[]; setPolici
 }
 
 function MoneyView() {
+  const [plans,setPlans] = useStoredState<MoneyPlan[]>('money-actions',[]);
+  const validPlans=plans.filter(plan=>typeof plan==='object'&&plan!==null&&Number.isFinite(plan.amount));
+  return <MoneyPlans plans={validPlans} onSave={plan=>setPlans([plan,...validPlans])} onRemove={id=>setPlans(validPlans.filter(plan=>plan.id!==id))}/>;
+}
+
+function LegacyMoneyView() {
   const [mode, setMode] = useState<"Cash-Out" | "Gifts" | "Vaults" | "Splitter">("Cash-Out");
   const [amount, setAmount] = useState(25);
   const [saved, setSaved] = useStoredState<string[]>("money-actions", []);
@@ -256,7 +265,7 @@ function MoneyView() {
 
 function CallsView({ calls, setCalls }: { calls: Call[]; setCalls: (calls: Call[]) => void }) {
   const [ticker,setTicker]=useState("NVDA"); const [prediction,setPrediction]=useState(1.5);
-  const submit=()=>setCalls([{id:Date.now(),ticker,prediction,createdAt:new Date().toISOString()},...calls]);
+  const submit=()=>{if(!Number.isFinite(prediction)||Math.abs(prediction)>100){window.alert('Enter a predicted move between −100% and +100%.');return;}setCalls([{id:Date.now(),ticker,prediction,createdAt:new Date().toISOString()},...calls]);};
   return <main className="content module-page"><div className="page-heading"><div><span className="eyebrow">COMMUNITY SIGNAL</span><h1>Weekend Calls</h1><p>Call Monday’s opening move, then let the scorecard grade it.</p></div><span className="data-source demo">Closes Sunday 23:59 UTC</span></div><section className="calls-grid"><article className="card form-card"><h2>Make your call</h2><label>Ticker</label><select value={ticker} onChange={(e)=>setTicker(e.target.value)}>{Object.keys(markets).map(x=><option key={x}>{x}</option>)}</select><label>Expected Monday move</label><div className="money-input"><input type="number" step="0.1" value={prediction} onChange={(e)=>setPrediction(Number(e.target.value))}/><span>%</span></div><button className="primary" onClick={submit}>Save call</button></article><article className="card leaderboard"><span className="eyebrow">YOUR SIGNALS</span><h2>{calls.length} saved calls</h2><p>Your calls are stored with their creation time. Shared rankings and accuracy grading require an independent Monday opening-price feed.</p></article></section><section className="card"><div className="section-heading"><div><h2>Your calls</h2><p>Sign in to sync calls across devices.</p></div></div>{calls.length?calls.map(call=><div className="issuer-row" key={call.id}><div><span className="token-mark">{call.ticker[0]}</span><strong>{call.ticker}</strong></div><div><small>PREDICTION</small><strong>{call.prediction>=0?"+":""}{call.prediction.toFixed(1)}%</strong></div><span className="confidence">Awaiting Monday</span></div>):<div className="empty-state compact">No calls yet.</div>}</section></main>;
 }
 
@@ -279,16 +288,21 @@ function ScorecardView() {
 
 function AddHoldingModal({ onClose, onAdd }: { onClose: () => void; onAdd: (holding: Holding) => void }) {
   const [ticker,setTicker]=useState("MSFT"); const [qty,setQty]=useState(1);
-  const submit=()=>{ const key=ticker.toUpperCase(); onAdd({ticker:key,company:key,qty,friday:0,now:null,issuer:null,spark:[]}); onClose(); };
+  const submit=()=>{ const key=ticker.trim().toUpperCase(); if(!/^[A-Z]{1,8}$/.test(key)||!Number.isFinite(qty)||qty<=0){window.alert('Enter a valid ticker and a positive quantity.');return;} onAdd({ticker:key,company:key,qty,friday:0,now:null,issuer:null,spark:[]}); onClose(); };
   return <div className="modal-backdrop" role="presentation" onMouseDown={onClose}><section className="modal card" role="dialog" aria-modal="true" aria-labelledby="add-title" onMouseDown={(e)=>e.stopPropagation()}><button className="modal-close" onClick={onClose} aria-label="Close"><X/></button><span className="eyebrow">MANUAL PORTFOLIO ENTRY</span><h2 id="add-title">Add a brokerage holding</h2><p>Gapline stores the ticker and quantity in this browser. No broker credentials are requested.</p><label>Ticker</label><input value={ticker} onChange={(e)=>setTicker(e.target.value)}/><label>Quantity</label><input type="number" min="0.001" step="0.001" value={qty} onChange={(e)=>setQty(Number(e.target.value))}/><button className="primary" onClick={submit}>Add holding</button></section></div>;
 }
 
 export default function Home() {
   const [view, setView] = useState<View>("Weekend");
-  const [portfolio, setPortfolio] = useStoredState<Holding[]>("portfolio", [...demoHoldings]);
+  const [portfolio, setPortfolio] = useStoredState<Holding[]>("portfolio", []);
   const [policies, setPolicies] = useStoredState<Policy[]>("policies", []);
   const [calls, setCalls] = useStoredState<Call[]>("calls", []);
   const [showAdd, setShowAdd] = useState(false);
   const tabs: View[] = ["Weekend","Gap Monitor","Guardian","Money","Calls","Scorecard"];
-return <div className="app-shell"><header className="topbar"><button className="brand" onClick={() => setView("Weekend")}><Logo/><strong>Gapline</strong></button><nav aria-label="Primary navigation">{tabs.map((tab) => <button key={tab} onClick={() => setView(tab)} className={view===tab ? "active" : ""}>{tab}</button>)}</nav><div className="header-actions"><button className="icon-button" aria-label="Alerts"><Bell size={20}/><span className="badge">3</span></button><AccountControl/></div></header>{view==="Weekend" ? <WeekendView goTo={setView} holdings={portfolio} onAddHolding={()=>setShowAdd(true)}/> : view==="Gap Monitor" ? <GapView/> : view==="Guardian" ? <GuardianView policies={policies} setPolicies={setPolicies}/> : view==="Money" ? <MoneyView/> : view==="Calls" ? <CallsView calls={calls} setCalls={setCalls}/> : <ScorecardView/>}<nav className="mobile-nav" aria-label="Mobile navigation">{(["Weekend","Gap Monitor","Guardian","Money"] as View[]).map((tab) => <button key={tab} onClick={() => setView(tab)} className={view===tab ? "active" : ""}><span>{tab==="Weekend"?"Home":tab==="Gap Monitor"?"Gaps":tab}</span></button>)}</nav>{showAdd&&<AddHoldingModal onClose={()=>setShowAdd(false)} onAdd={(holding)=>setPortfolio([...portfolio,holding])}/>}</div>;
+  return <div className="app-shell">
+    <header className="topbar"><button className="brand" onClick={()=>setView('Weekend')}><Logo/><strong>Gapline</strong></button><nav aria-label="Primary navigation">{tabs.map(tab=><button key={tab} onClick={()=>setView(tab)} className={view===tab?'active':''}>{tab}</button>)}</nav><div className="header-actions"><AccountControl/></div></header>
+    {view==='Weekend'?<WeekendView goTo={setView} holdings={portfolio} onAddHolding={()=>setShowAdd(true)}/>:view==='Gap Monitor'?<GapView/>:view==='Guardian'?<GuardianView policies={policies} setPolicies={setPolicies}/>:view==='Money'?<MoneyView/>:view==='Calls'?<CallsView calls={calls} setCalls={setCalls}/>:<ScorecardView/>}
+    <nav className="mobile-nav" aria-label="Mobile navigation">{tabs.map(tab=><button key={tab} onClick={()=>setView(tab)} className={view===tab?'active':''}><span>{tab==='Weekend'?'Home':tab==='Gap Monitor'?'Gaps':tab}</span></button>)}</nav>
+    {showAdd&&<AddHoldingModal onClose={()=>setShowAdd(false)} onAdd={holding=>{const existing=portfolio.find(item=>item.ticker===holding.ticker);setPortfolio(existing?portfolio.map(item=>item.ticker===holding.ticker?{...item,qty:item.qty+holding.qty}:item):[...portfolio,holding]);}}/>}
+  </div>;
 }

@@ -17,7 +17,7 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
-    <ClerkProvider><html lang="en">
+    <ClerkProvider proxyUrl={process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY?.startsWith('pk_live_') ? 'https://gapline-mu.vercel.app/api/clerk' : undefined}><html lang="en">
       <body>{children}</body>
     </html></ClerkProvider>
   );
