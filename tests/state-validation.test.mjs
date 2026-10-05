@@ -1,0 +1,11 @@
+import assert from 'node:assert/strict';
+import { validState } from '../lib/state-validation.ts';
+assert.equal(validState('portfolio',[{ticker:'NVDA',qty:12,company:'NVIDIA'}]),true);
+for(const qty of [0,-1,NaN,Infinity,'12'])assert.equal(validState('portfolio',[{ticker:'NVDA',qty,company:'NVIDIA'}]),false);
+assert.equal(validState('calls',[{id:1,ticker:'NVDA',prediction:101,createdAt:new Date().toISOString()}]),false);
+assert.equal(validState('money-actions',[{id:1,kind:'Gifts',ticker:'NVDA',amount:51,createdAt:new Date().toISOString()}]),false);
+assert.equal(validState('money-actions',['Fake funded gift']),false);
+assert.equal(validState('policies',[{id:1,ticker:'NVDA',threshold:3,maxTrade:25,status:'approved',text:'Protect $25',action:'Sell sleeve to USDT'}]),true);
+assert.equal(validState('unknown',[]),false);
+assert.equal(validState('portfolio',new Array(501).fill({ticker:'NVDA',qty:1,company:'NVIDIA'})),false);
+console.log('Collection validation invariants passed');

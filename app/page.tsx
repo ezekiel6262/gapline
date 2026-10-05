@@ -16,10 +16,15 @@ function useStoredState<T>(key: string, initial: T) {
   const [value, setValue] = useState<T>(initial);
   const [ready, setReady] = useState(false);
   const [loadedOwner, setLoadedOwner] = useState<string | null>(null);
+  const [cloudLoaded,setCloudLoaded] = useState(false);
   useEffect(() => {
-    if (!isLoaded) return;
+    if (!isLoaded) {
+      const timer=window.setTimeout(()=>{try {const saved=window.localStorage.getItem(`gapline:v2:guest:${key}`);setValue(saved?JSON.parse(saved) as T:initial);}catch{setValue(initial);}setLoadedOwner('guest');setReady(true);},2000);
+      return()=>window.clearTimeout(timer);
+    }
     let cancelled = false;
     setReady(false);
+    setCloudLoaded(false);
     const storageKey = `gapline:v2:${user?.id ?? 'guest'}:${key}`;
     const load = async () => {
       let next = initial;
@@ -28,7 +33,7 @@ function useStoredState<T>(key: string, initial: T) {
         if (saved) next = JSON.parse(saved) as T;
         if (user) {
           const response = await fetch(`/api/state/${key}`);
-          if (response.ok) { const result = await response.json(); if (result.value !== null) next = result.value as T; }
+          if (response.ok) { const result = await response.json(); if (result.value !== null) next = result.value as T; if(!cancelled)setCloudLoaded(true); }
         }
       } catch { /* Keep the local fallback when offline. */ }
       if (!cancelled) { setValue(next); setLoadedOwner(user?.id ?? 'guest'); setReady(true); }
@@ -41,19 +46,21 @@ function useStoredState<T>(key: string, initial: T) {
   useEffect(() => {
     if (!ready || loadedOwner !== (user?.id ?? 'guest')) return;
     window.localStorage.setItem(`gapline:v2:${user?.id ?? 'guest'}:${key}`, JSON.stringify(value));
-    if (!user) return;
+    if (!user || !cloudLoaded) return;
     const controller = new AbortController();
     const timer = window.setTimeout(() => {
       void fetch(`/api/state/${key}`, { method:'PUT', headers:{'Content-Type':'application/json'},body:JSON.stringify({value}),signal:controller.signal }).catch(()=>{});
     }, 400);
     return () => { window.clearTimeout(timer); controller.abort(); };
-  }, [key, value, ready, loadedOwner, user?.id]);
+  }, [key, value, ready, loadedOwner, cloudLoaded, user?.id]);
   return [value, setValue] as const;
 }
 
 function AccountControl() {
   const { user, isLoaded } = useUser();
-  if (!isLoaded) return <span className="updated">Loading account…</span>;
+  const [timedOut,setTimedOut]=useState(false);
+  useEffect(()=>{const timer=window.setTimeout(()=>setTimedOut(true),10000);return()=>window.clearTimeout(timer);},[]);
+  if (!isLoaded) return <span className="updated" role="status">{timedOut?'Guest · sign-in setup pending':'Loading account…'}</span>;
   return user ? <UserButton afterSignOutUrl="/"/> : <SignInButton mode="modal"><button className="secondary">Sign in · save portfolio</button></SignInButton>;
 }
 
@@ -248,20 +255,6 @@ function MoneyView() {
   return <MoneyPlans plans={validPlans} onSave={plan=>setPlans([plan,...validPlans])} onRemove={id=>setPlans(validPlans.filter(plan=>plan.id!==id))}/>;
 }
 
-function LegacyMoneyView() {
-  const [mode, setMode] = useState<"Cash-Out" | "Gifts" | "Vaults" | "Splitter">("Cash-Out");
-  const [amount, setAmount] = useState(25);
-  const [saved, setSaved] = useStoredState<string[]>("money-actions", []);
-  const save = (label: string) => setSaved([`${label} · ${new Date().toLocaleDateString()}`, ...saved]);
-  return <main className="content module-page"><div className="page-heading"><div><span className="eyebrow">REAL-LIFE MONEY</span><h1>Use your tokens</h1><p>Preview practical flows without hiding price, liquidity or issuer risk.</p></div><span className="data-source demo">Preview mode · no funds move</span></div>
-    <div className="subnav">{(["Cash-Out","Gifts","Vaults","Splitter"] as const).map((item)=><button className={mode===item?"active":""} onClick={()=>setMode(item)} key={item}>{item}</button>)}</div>
-    {mode === "Cash-Out" && <section className="money-grid"><article className="card form-card"><CircleDollarSign/><h2>Weekend Cash-Out</h2><p>Turn part of a tokenized sleeve into BSC USDT.</p><label>Amount needed</label><div className="money-input"><span>$</span><input type="number" min="5" max="50" value={amount} onChange={(e)=>setAmount(Number(e.target.value))}/></div><label>Sell from</label><select><option>NVDAB · bStocks sleeve</option><option>TSLAB · bStocks sleeve</option></select><button className="primary" onClick={()=>save(`Cash-Out preview for $${amount}`)}>Preview quote</button></article><article className="card fair-price"><span className="eyebrow">FAIR PRICE CHECK</span><h2>No execution until every check passes.</h2><div className="metric-row"><span>Trade cap</span><strong>${Math.min(amount,50).toFixed(2)}</strong></div><div className="metric-row"><span>Maximum impact</span><strong>1.00%</strong></div><div className="metric-row"><span>Simulation</span><strong>Required</strong></div><div className="metric-row"><span>Settlement</span><strong>BSC USDT</strong></div><p className="note">A real quote must replace these limits before the Agentic Wallet can be asked to sign.</p></article></section>}
-    {mode === "Gifts" && <section className="money-grid"><article className="card form-card"><Gift/><h2>Stock Gift</h2><label>Gift</label><select><option>AAPLB · Apple bStock</option><option>NVDAB · NVIDIA bStock</option></select><label>USD amount</label><input type="number" value={amount} onChange={(e)=>setAmount(Number(e.target.value))}/><label>Message</label><input defaultValue="A small piece of the future."/><button className="primary" onClick={()=>save(`Gift draft for $${amount}`)}>Create gift draft</button></article><article className="card"><span className="eyebrow">ESCROW STATUS</span><h2>Contract deployment required</h2><p>The claim-link UX is ready for an audited three-function GiftEscrow. Until it is deployed and verified, Gapline will not pretend a gift is funded.</p><div className="blocked"><ShieldCheck/> Safe by default · deposits disabled</div></article></section>}
-    {mode === "Vaults" && <section className="money-grid"><article className="card form-card"><Target/><h2>Goal Vault</h2><label>Goal name</label><input defaultValue="School fees"/><label>Target</label><input type="number" defaultValue="1200"/><label>Due date</label><input type="date" defaultValue="2027-03-01"/><button className="primary" onClick={()=>save("School fees vault saved")}>Save vault plan</button></article><article className="card vault-chart"><span className="eyebrow">GLIDE PATH</span><h2>Risk falls as the due date approaches.</h2><div className="glide"><span style={{width:"68%"}}>Stocks 68%</span><span style={{width:"32%"}}>USDT 32%</span></div><p>Weekly rebalances begin 60 days before payment and stop once fully stable seven days before due.</p></article></section>}
-    {mode === "Splitter" && <section className="money-grid"><article className="card form-card"><Sparkles/><h2>Salary Splitter</h2><label>When incoming USDT exceeds</label><input type="number" defaultValue="100"/><label>Invest this percentage</label><input type="number" defaultValue="15"/><label>Target basket</label><select><option>AI & semiconductors</option><option>Broad market</option></select><button className="primary" onClick={()=>save("15% salary split rule saved")}>Save splitter rule</button></article><article className="card"><span className="eyebrow">AUTOMATION READINESS</span><h2>Plan saved to your account</h2><p>Activation requires wallet incoming-transfer monitoring plus the same quote, simulation and policy checks used by Guardian.</p></article></section>}
-    {saved.length > 0 && <section className="card saved-list"><h2>Saved previews</h2>{saved.slice(0,4).map((item)=><div className="log-row" key={item}><Check/><span>{item}</span></div>)}</section>}
-  </main>;
-}
 
 function CallsView({ calls, setCalls }: { calls: Call[]; setCalls: (calls: Call[]) => void }) {
   const [ticker,setTicker]=useState("NVDA"); const [prediction,setPrediction]=useState(1.5);
