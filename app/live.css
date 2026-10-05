@@ -7,7 +7,8 @@
   padding: 7px 11px;
 }
 
-.data-source.live {
+.data-source.live,
+.data-source.public-live {
   background: #e3eafb;
   color: #1d4fb8;
 }

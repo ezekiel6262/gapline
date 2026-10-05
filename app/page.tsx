@@ -65,7 +65,7 @@ function WeekendView({ goTo }: { goTo: (view: View) => void }) {
 function GapView() {
   const [ticker, setTicker] = useState("NVDA");
   const [summary, setSummary] = useState(() => marketSummary("NVDA"));
-  const [marketState, setMarketState] = useState<"loading" | "live" | "demo" | "error">("loading");
+  const [marketState, setMarketState] = useState<"loading" | "live" | "public-live" | "demo" | "error">("loading");
 
   useEffect(() => {
     const controller = new AbortController();
@@ -75,7 +75,7 @@ function GapView() {
         const result = await response.json();
         if (!response.ok) throw new Error(result.error ?? "Market data request failed");
         setSummary(result);
-        setMarketState(result.source === "live-binance-rwa" ? "live" : "demo");
+        setMarketState(result.source === "live-binance-rwa" ? "live" : result.source === "live-binance-public" ? "public-live" : "demo");
       })
       .catch((error) => {
         if (error instanceof DOMException && error.name === "AbortError") return;
@@ -92,7 +92,7 @@ function GapView() {
     : null;
   return <>
     <section className="weekend-banner compact"><div><span className="status-pill"><span/> Weekend mode</span><p>Compare the closed reference with markets trading now.</p></div><div className="countdown"><small>MARKET OPENS IN</small><strong>1D 08H 42M</strong></div></section>
-    <main className="content"><div className="page-heading"><div><span className="eyebrow">LIVE MARKET INTELLIGENCE</span><h1>Gap Monitor</h1></div><span className={`data-source ${marketState}`}>{marketState === "live" ? "Live · Binance RWA" : marketState === "loading" ? "Refreshing…" : marketState === "error" ? "Live data unavailable · Demo shown" : "Recorded demo"}</span></div>
+    <main className="content"><div className="page-heading"><div><span className="eyebrow">LIVE MARKET INTELLIGENCE</span><h1>Gap Monitor</h1></div><span className={`data-source ${marketState}`} title={marketState === "public-live" ? "Verified contract from Binance's public RWA catalog; price from Binance's public spot market." : undefined}>{marketState === "live" ? "Live · Binance RWA API" : marketState === "public-live" ? "Live · Binance public market" : marketState === "loading" ? "Refreshing…" : marketState === "error" ? "Live data unavailable · Demo shown" : "Recorded demo"}</span></div>
       <div className="ticker-tabs">{Object.keys(markets).map((item) => <button key={item} onClick={() => setTicker(item)} className={ticker===item ? "active" : ""}>{item}</button>)}</div>
       <section className="gap-hero card"><div className="gap-stats"><div><small>FRIDAY REFERENCE</small><strong>${summary.reference.toFixed(2)}</strong><span>Market closed</span></div><div><small>LAST ONCHAIN TRADE</small><strong>${last.toFixed(2)}</strong><span className={summary.gap >= 0 ? "gain" : "loss"}>{summary.gap >= 0 ? "+" : ""}{summary.gap.toFixed(2)}%</span></div></div><div className="implied"><small>IMPLIED MONDAY OPEN</small><strong>${summary.implied.toFixed(2)}</strong><span className="confidence">{summary.confidence} confidence</span><p>Liquidity-weighted across issuers</p></div></section>
       <section className="monitor-grid"><article className="card"><div className="section-heading"><div><h2>{ticker} across the weekend</h2><p>Normalized issuer prices against Friday&apos;s close.</p></div></div><PriceChart values={summary.history} reference={summary.reference}/><div className="legend"><span><i className="blue"/>Tokenized price</span><span><i className="dashed"/>Friday reference</span></div></article><article className="card why-card"><span className="eyebrow">WHY {summary.confidence.toUpperCase()} CONFIDENCE?</span><h2>{summary.confidence === "Low" ? "Liquidity depth is not verified yet." : "The markets broadly agree."}</h2><div className="metric-row"><span>Total quoted depth</span><strong>{maxDepth ? `$${(maxDepth/1000).toFixed(1)}k` : "Pending"}</strong></div><div className="metric-row"><span>Issuer difference</span><strong>{issuerDifference === null ? "One issuer" : `${issuerDifference.toFixed(2)}%`}</strong></div><div className="metric-row"><span>Trade guardrail</span><strong>1.00%</strong></div><p className="note">The Guardian will not act until executable quote depth is connected, simulation passes and confidence is not low.</p></article></section>

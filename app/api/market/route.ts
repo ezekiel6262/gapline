@@ -1,10 +1,48 @@
 import { NextResponse } from "next/server";
 import { marketSummary, markets } from "@/lib/demo-data";
 import { createBinanceWeb3ClientFromEnv } from "@/lib/binance/client";
+import { getPublicBstockMarket } from "@/lib/binance/public-rwa";
 import { confidence, impliedOpen, percentChange, type IssuerPrice } from "@/lib/core";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
+
+async function publicMarketSummary(ticker: string, authenticatedError?: unknown) {
+  try {
+    const market = await getPublicBstockMarket(ticker);
+    if (!market) return null;
+
+    const reference = market.referencePrice;
+    const issuers: IssuerPrice[] = [{ issuer: market.issuer, price: market.price, depthUsd: 0 }];
+
+    return {
+      source: "live-binance-public",
+      updatedAt: market.updatedAt,
+      reference,
+      issuers,
+      implied: market.price,
+      gap: percentChange(market.price, reference),
+      confidence: confidence(issuers),
+      history: market.history,
+      depthStatus: "pending-quote-integration",
+      market: {
+        issuer: market.issuer,
+        pair: market.pair,
+        chainId: market.chainId,
+        contractAddress: market.contractAddress,
+      },
+      provenance: {
+        catalog: "Binance public RWA catalog",
+        price: "Binance public spot market",
+        reference: `Binance public spot Friday close (${market.referenceUpdatedAt})`,
+      },
+      authenticatedApiStatus: authenticatedError ? "compliance-restricted" : "not-configured",
+    };
+  } catch (error) {
+    console.error("Public Binance fallback failed", error instanceof Error ? error.message : "Unknown error");
+    return null;
+  }
+}
 
 export async function GET(request: Request) {
   const ticker = new URL(request.url).searchParams.get("ticker")?.toUpperCase() ?? "NVDA";
@@ -13,7 +51,13 @@ export async function GET(request: Request) {
   }
 
   if (!process.env.BINANCE_WEB3_API_KEY || !process.env.BINANCE_WEB3_API_SECRET) {
-    return NextResponse.json({ source: "recorded-demo", updatedAt: new Date().toISOString(), ...marketSummary(ticker) });
+    const fallback = await publicMarketSummary(ticker);
+    return NextResponse.json(fallback ?? {
+      source: "recorded-demo",
+      updatedAt: new Date().toISOString(),
+      ...marketSummary(ticker),
+      warning: "Live public market data is temporarily unavailable",
+    });
   }
 
   try {
@@ -49,9 +93,12 @@ export async function GET(request: Request) {
     });
   } catch (error) {
     console.error("Binance RWA request failed", error instanceof Error ? error.message : "Unknown error");
-    return NextResponse.json(
-      { error: "Live Binance market data is temporarily unavailable" },
-      { status: 502 },
-    );
+    const fallback = await publicMarketSummary(ticker, error);
+    return NextResponse.json(fallback ?? {
+      source: "recorded-demo",
+      updatedAt: new Date().toISOString(),
+      ...marketSummary(ticker),
+      warning: "Live Binance market data is temporarily unavailable",
+    });
   }
 }
