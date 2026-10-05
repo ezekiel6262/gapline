@@ -14,7 +14,9 @@ Gapline prices a user's brokerage holdings through tokenized-stock markets on BN
 - Guardian rule compiler, typed policy review and fail-closed preflight UI
 - Cash-Out, Stock Gift, Goal Vault and Salary Splitter product flows
 - Weekend Calls and Monday Scorecard experiences
-- Versioned browser persistence for holdings, policies, calls and saved previews
+- Clerk production sign-in with private Supabase cloud saves for holdings, policies, calls and plans
+- Live Shadow Portfolio valuation and stored market observations
+- Minute-by-minute Supabase snapshot job with encrypted scheduler credentials
 
 Every non-live value is explicitly marked as sample, preview or recorded data. No screen claims that a transaction was submitted when it was not.
 
@@ -35,7 +37,7 @@ Copy `.env.example` to `.env.local` and add credentials only on the server. Neve
 
 The execution pipeline must always be: detect → quote → simulate → enforce policy limits → execute → log. A failed simulation or breached limit must never reach the wallet.
 
-The current deployed build intentionally stops before execution. The connected Agentic Wallet has no server relay in this repository, so the Guardian and money tools expose product-ready review flows while keeping signing locked. See [architecture and readiness](docs/ARCHITECTURE.md).
+The current deployed build stops before wallet execution. The connected Agentic Wallet has no BSC funds and its signing session remains on the development computer. Guardian preflight enforces authentication and reports missing executable quote/simulation requirements. See [architecture and readiness](docs/ARCHITECTURE.md).
 
 ## Data provenance
 

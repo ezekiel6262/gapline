@@ -72,13 +72,17 @@ export async function GET(request: Request) {
     }
 
     const prices = await client.getRwaPrices(assets.map((asset) => asset.tokenContractAddress));
+    if (!prices.length || prices.some(price => !Number.isFinite(Number(price.tokenPrice)) || Number(price.tokenPrice) <= 0)) {
+      throw new Error('Authenticated API returned no usable prices');
+    }
     const issuers: IssuerPrice[] = prices.map((price) => ({
       issuer: price.platformId === "bstock" ? "bStocks" : price.platformId === "ondo" ? "Ondo" : "xStocks",
       price: Number(price.tokenPrice),
       depthUsd: 0,
     }));
     const reference = Number(prices[0]?.referencePrice);
-    const implied = impliedOpen(issuers);
+    const implied = issuers.reduce((sum,issuer)=>sum+issuer.price,0)/issuers.length;
+    if (!Number.isFinite(reference) || reference <= 0) throw new Error('Authenticated reference price unavailable');
 
     return NextResponse.json({
       source: "live-binance-rwa",

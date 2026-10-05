@@ -16,7 +16,7 @@ The API key and secret are server-only. The browser never receives either creden
 
 | Capability | State | Execution boundary |
 | --- | --- | --- |
-| Shadow Portfolio | Interactive | Browser-persisted; account database pending |
+| Shadow Portfolio | Live prices | Clerk authentication and private Supabase account storage |
 | Gap Monitor | Live | Binance public market data in production |
 | Guardian policies | Interactive preview | Signing locked until quote and simulation adapters are approved |
 | Weekend Cash-Out | Interactive preview | No funds move |
@@ -24,7 +24,7 @@ The API key and secret are server-only. The browser never receives either creden
 | Goal Vaults | Interactive plan | Scheduled rebalancing pending |
 | Salary Splitter | Interactive rule | Incoming-transfer monitoring pending |
 | Weekend Calls | Browser-persisted | Shared leaderboard database pending |
-| Monday Scorecard | Sample structure | Snapshot job and Monday-open source pending |
+| Monday Scorecard | Live stored observations | Supabase minute snapshots; traditional Monday-open source pending |
 
 ## Execution invariant
 
@@ -39,9 +39,19 @@ The hard hackathon limit is $50 per trade. Price impact over 1%, low-confidence 
 
 ## Next production services
 
-1. Account authentication and jurisdiction confirmation.
-2. Durable user database for holdings, policies and action receipts.
+1. Issuer jurisdiction verification before real execution.
+2. Signed transaction receipts for completed wallet actions.
 3. Quote, swap-routing and transaction-simulation adapters.
 4. Agentic Wallet execution relay with explicit user confirmation.
-5. Weekend snapshot scheduler and Monday-open grading job.
+5. Independent traditional-market Monday-open feed for prediction grading.
 6. Audited and verified GiftEscrow contract.
+
+## Deployed infrastructure
+
+Clerk production credentials provide account sessions. API state routes obtain the user ID from the verified Clerk session and always scope Supabase queries to that ID. Tables enable RLS and revoke access from anonymous and authenticated Data API roles; only the server's service key can access them. Browser requests never supply an owner ID.
+
+Supabase pg_cron calls the protected snapshot route every minute. Its credential is encrypted in Supabase Vault. A daily Vercel cron serves as backup. The first genuine observations are already stored. Public snapshot reads expose only market information.
+
+The Agentic Wallet CLI is connected on the development computer, has returned a real quote, and currently holds no BSC tokens. Its session is not installed in Vercel. A dedicated authenticated execution worker and wallet funding are required before policies can execute.
+
+GiftEscrow.sol is a compiled prototype with recipient-bound signatures, replay protection using chain and contract domains, expiry, and a reentrancy guard. Compilation does not constitute an audit. It is not deployed or funded.
