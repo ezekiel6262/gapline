@@ -1,0 +1,8 @@
+.wallet-panel{position:fixed;top:84px;right:20px;z-index:40;width:min(520px,calc(100vw - 32px));max-height:calc(100dvh - 164px);overflow:auto;padding:24px;box-shadow:0 16px 60px #11182130;display:grid;gap:12px}
+.wallet-panel h2,.wallet-panel h3,.wallet-panel p{margin:0}
+.wallet-panel p{font-size:14px;line-height:1.5}
+.wallet-panel input,.wallet-panel select{width:100%;min-height:44px;border:1px solid var(--line);border-radius:8px;padding:10px;background:#fff;font:inherit}
+.wallet-panel .section-heading{padding:0;gap:16px}
+.wallet-address{overflow-wrap:anywhere;font-family:'IBM Plex Mono',monospace;font-size:12px!important}
+.wallet-panel button:disabled{opacity:.5;cursor:not-allowed}
+@media(max-width:700px){.wallet-panel{top:72px;right:16px;padding:18px}}

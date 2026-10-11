@@ -5,6 +5,7 @@ import { useUser, SignInButton, UserButton } from '@clerk/nextjs';
 import { Activity, Bell, Check, ChevronRight, CircleDollarSign, Gift, Landmark, Link2, Plus, ShieldCheck, Sparkles, Target, WalletCards, X } from "lucide-react";
 import { holdings as demoHoldings, marketSummary, markets } from "@/lib/demo-data";
 import MoneyPlans, { type MoneyPlan } from './money-plans';
+import WalletPanel from './wallet-panel';
 
 type View = "Weekend" | "Gap Monitor" | "Guardian" | "Money" | "Calls" | "Scorecard";
 type Holding = { ticker: string; company: string; qty: number; friday: number; now: number | null; issuer: string | null; spark: readonly number[] };
@@ -293,7 +294,7 @@ export default function Home() {
   const [showAdd, setShowAdd] = useState(false);
   const tabs: View[] = ["Weekend","Gap Monitor","Guardian","Money","Calls","Scorecard"];
   return <div className="app-shell">
-    <header className="topbar"><button className="brand" onClick={()=>setView('Weekend')}><Logo/><strong>Gapline</strong></button><nav aria-label="Primary navigation">{tabs.map(tab=><button key={tab} onClick={()=>setView(tab)} className={view===tab?'active':''}>{tab}</button>)}</nav><div className="header-actions"><AccountControl/></div></header>
+    <header className="topbar"><button className="brand" onClick={()=>setView('Weekend')}><Logo/><strong>Gapline</strong></button><nav aria-label="Primary navigation">{tabs.map(tab=><button key={tab} onClick={()=>setView(tab)} className={view===tab?'active':''}>{tab}</button>)}</nav><div className="header-actions"><WalletPanel/><AccountControl/></div></header>
     {view==='Weekend'?<WeekendView goTo={setView} holdings={portfolio} onAddHolding={()=>setShowAdd(true)}/>:view==='Gap Monitor'?<GapView/>:view==='Guardian'?<GuardianView policies={policies} setPolicies={setPolicies}/>:view==='Money'?<MoneyView/>:view==='Calls'?<CallsView calls={calls} setCalls={setCalls}/>:<ScorecardView/>}
     <nav className="mobile-nav" aria-label="Mobile navigation">{tabs.map(tab=><button key={tab} onClick={()=>setView(tab)} className={view===tab?'active':''}><span>{tab==='Weekend'?'Home':tab==='Gap Monitor'?'Gaps':tab}</span></button>)}</nav>
     {showAdd&&<AddHoldingModal onClose={()=>setShowAdd(false)} onAdd={holding=>{const existing=portfolio.find(item=>item.ticker===holding.ticker);setPortfolio(existing?portfolio.map(item=>item.ticker===holding.ticker?{...item,qty:item.qty+holding.qty}:item):[...portfolio,holding]);}}/>}

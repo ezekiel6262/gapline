@@ -71,6 +71,7 @@ export class BinanceWeb3Client {
       },
       body: body || undefined,
       cache: "no-store",
+      signal: AbortSignal.timeout(12_000),
     });
 
     const result = (await response.json()) as BinanceEnvelope<T>;
@@ -85,6 +86,10 @@ export class BinanceWeb3Client {
       keyword,
       ...(platformId ? { platformId } : {}),
     });
+  }
+
+  getTradeQuotes(params:{amount:string;fromTokenAddress:string;toTokenAddress:string;userWalletAddress:string}) {
+    return this.request<unknown>('GET','/api/v1/dex/aggregator/quote',{binanceChainId:'56',...params});
   }
 
   getRwaPrices(tokenContractAddresses: string[]) {
