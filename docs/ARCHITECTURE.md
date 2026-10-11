@@ -52,6 +52,8 @@ Clerk production credentials provide account sessions. API state routes obtain t
 
 Supabase pg_cron calls the protected snapshot route every minute. Its credential is encrypted in Supabase Vault. A daily Vercel cron serves as backup. The first genuine observations are already stored. Public snapshot reads expose only market information.
 
-The Agentic Wallet CLI is connected on the development computer, has returned a real quote, and currently holds no BSC tokens. Its session is not installed in Vercel. A dedicated authenticated execution worker and wallet funding are required before policies can execute.
+The Agentic Wallet CLI is connected on the development computer, has returned a real quote, and holds USDT (funding is not an execution integration). Its session is not installed in Vercel. The private preparation service isolates operator access and signs nothing. A production host, verified signing adapters, simulation, issuer eligibility, durable spend reservations and explicit authorization are required before policies can execute.
 
-GiftEscrow.sol is a compiled prototype with recipient-bound signatures, replay protection using chain and contract domains, expiry, and a reentrancy guard. Compilation does not constitute an audit. It is not deployed or funded.
+GiftEscrow.sol has local behavioral tests for recipient/chain/contract-bound signatures, expiry/reclaims, replay rejection and transfer rollback. Testing does not constitute an independent audit. It is not deployed or funded.
+
+The /demo receipt verifier makes read-only requests directly to the official BSC RPC. It checks a canonical, successfully executed mainnet transaction with at least three confirmations and allowlisted nonzero token movements involving the supplied address. This is not a signer, identity proof or assertion of automated strategy execution.

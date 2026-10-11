@@ -296,6 +296,7 @@ export default function Home() {
   return <div className="app-shell">
     <header className="topbar"><button className="brand" onClick={()=>setView('Weekend')}><Logo/><strong>Gapline</strong></button><nav aria-label="Primary navigation">{tabs.map(tab=><button key={tab} onClick={()=>setView(tab)} className={view===tab?'active':''}>{tab}</button>)}</nav><div className="header-actions"><WalletPanel/><AccountControl/></div></header>
     {view==='Weekend'?<WeekendView goTo={setView} holdings={portfolio} onAddHolding={()=>setShowAdd(true)}/>:view==='Gap Monitor'?<GapView/>:view==='Guardian'?<GuardianView policies={policies} setPolicies={setPolicies}/>:view==='Money'?<MoneyView/>:view==='Calls'?<CallsView calls={calls} setCalls={setCalls}/>:<ScorecardView/>}
+    <footer style={{padding:'20px',textAlign:'center'}}><a href="/demo">Hackathon walkthrough & mainnet evidence</a></footer>
     <nav className="mobile-nav" aria-label="Mobile navigation">{tabs.map(tab=><button key={tab} onClick={()=>setView(tab)} className={view===tab?'active':''}><span>{tab==='Weekend'?'Home':tab==='Gap Monitor'?'Gaps':tab}</span></button>)}</nav>
     {showAdd&&<AddHoldingModal onClose={()=>setShowAdd(false)} onAdd={holding=>{const existing=portfolio.find(item=>item.ticker===holding.ticker);setPortfolio(existing?portfolio.map(item=>item.ticker===holding.ticker?{...item,qty:item.qty+holding.qty}:item):[...portfolio,holding]);}}/>}
   </div>;

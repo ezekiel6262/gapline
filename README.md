@@ -2,7 +2,9 @@
 
 Your broker sleeps on weekends. Gapline does not.
 
-Gapline prices a user's brokerage holdings through tokenized-stock markets on BNB Smart Chain, explains the gap from the closed reference market, and gives a scoped agent a simulation-first path to act.
+Gapline is a bStocks-first weekend portfolio and token-market monitoring tool on BNB Smart Chain. The current fallback reference is a Friday UTC token-market close, not an independently verified underlying-equity close. Execution remains locked.
+
+Judge walkthrough: https://trygapline.xyz/demo · [Submission instructions](docs/SUBMISSION.md).
 
 ## Live build
 
@@ -12,8 +14,8 @@ Gapline prices a user's brokerage holdings through tokenized-stock markets on BN
 - Verified BSC bStock allowlist and live Binance public spot prices
 - Dynamic New York market clock and Friday reference prices
 - Guardian rule compiler, typed policy review and fail-closed preflight UI
-- Cash-Out, Stock Gift, Goal Vault and Salary Splitter product flows
-- Weekend Calls and Monday Scorecard experiences
+- Cash-Out, Stock Gift, Goal Vault and Salary Splitter planning previews (not transactions)
+- Personal Weekend Calls and stored-observation Scorecard (no automatic Monday grading)
 - Clerk production sign-in with private Supabase cloud saves for holdings, policies, calls and plans
 - Live Shadow Portfolio valuation and stored market observations
 - Minute-by-minute Supabase snapshot job with encrypted scheduler credentials
@@ -37,7 +39,7 @@ Copy `.env.example` to `.env.local` and add credentials only on the server. Neve
 
 The execution pipeline must always be: detect → quote → simulate → enforce policy limits → execute → log. A failed simulation or breached limit must never reach the wallet.
 
-The current deployed build stops before wallet execution. The connected Agentic Wallet has no BSC funds and its signing session remains on the development computer. Guardian preflight enforces authentication and reports missing executable quote/simulation requirements. See [architecture and readiness](docs/ARCHITECTURE.md).
+The current deployed build stops before wallet execution. The local Agentic Wallet was funded with USDT; its signing session remains private on the development computer. Guardian preflight reports missing executable quote/simulation requirements. Browser wallet connection, private quote preparation and read-only BSC receipt verification are implemented; continuous Guardian hosting and signing are not. See [architecture and readiness](docs/ARCHITECTURE.md).
 
 ## Data provenance
 
@@ -50,7 +52,7 @@ pnpm typecheck
 pnpm build
 ```
 
-Production: https://gapline-mu.vercel.app
+Production: https://trygapline.xyz (legacy: https://gapline-mu.vercel.app)
 # Custom-domain authentication
 
 `trygapline.xyz` selects `NEXT_PUBLIC_GAPLINE_CUSTOM_CLERK_PUBLISHABLE_KEY` and `GAPLINE_CUSTOM_CLERK_SECRET_KEY`. The legacy Vercel address retains its original Clerk variables and `/__clerk` proxy. `CLERK_ENCRYPTION_KEY` is required for secure propagation of the custom server credentials; never expose it or any secret key to client components.
