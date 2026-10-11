@@ -1,5 +1,7 @@
 import type { Metadata } from "next";
 import { ClerkProvider } from '@clerk/nextjs';
+import { headers } from 'next/headers';
+import { clerkConfigForHost } from '@/lib/clerk-server-config';
 import "@fontsource/ibm-plex-sans/400.css";
 import "@fontsource/ibm-plex-sans/500.css";
 import "@fontsource/ibm-plex-sans/600.css";
@@ -16,8 +18,9 @@ export const metadata: Metadata = {
 };
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
+  const {publishableKey,proxyUrl}=clerkConfigForHost(headers().get('host'));
   return (
-    <ClerkProvider proxyUrl={process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY?.startsWith('pk_live_') ? 'https://gapline-mu.vercel.app/__clerk' : undefined}><html lang="en">
+    <ClerkProvider publishableKey={publishableKey} proxyUrl={proxyUrl}><html lang="en">
       <body>{children}</body>
     </html></ClerkProvider>
   );

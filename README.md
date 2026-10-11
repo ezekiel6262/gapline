@@ -51,3 +51,9 @@ pnpm build
 ```
 
 Production: https://gapline-mu.vercel.app
+# Custom-domain authentication
+
+`trygapline.xyz` selects `NEXT_PUBLIC_GAPLINE_CUSTOM_CLERK_PUBLISHABLE_KEY` and `GAPLINE_CUSTOM_CLERK_SECRET_KEY`. The legacy Vercel address retains its original Clerk variables and `/__clerk` proxy. `CLERK_ENCRYPTION_KEY` is required for secure propagation of the custom server credentials; never expose it or any secret key to client components.
+
+The middleware pins authenticated requests to the issuer configured for each host. Regression checks: `node --test tests/clerk-host-config.test.mjs tests/clerk-proxy.test.mjs`. The opt-in integration script `scripts/verify-custom-auth.mjs` creates temporary test accounts, checks private cloud ownership, revokes its sessions and removes only its own fixtures. It requires ignored `.env.replacement.local` configuration. It does not replace a manual browser sign-up and email-delivery check.
+

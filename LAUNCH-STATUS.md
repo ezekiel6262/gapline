@@ -12,7 +12,7 @@
 
 ## Not live — do not represent these as completed
 
-1. Production sign-in: the managed Clerk instance expects a custom DNS subdomain. The provider rejects API changes to its domain proxy setting. A custom domain controlled by the owner is needed, or an alternative production authentication setup must be chosen. Development credentials have not been substituted.
+1. Production authentication: `trygapline.xyz` uses the separate `gapline-custom-auth` instance and verified custom-domain DNS. The legacy Vercel host retains its original verified proxy. Per-host credentials and JWT issuer restrictions keep the instances separate. Authenticated save/read and account-isolation checks pass with temporary test accounts; browser sign-up and email verification still require a manual check because browser automation is unavailable. Accounts do not automatically transfer between instances.
 2. Wallet execution: the connected local Binance Agentic Wallet has no spendable BSC balance. A funded wallet, explicit transaction authorization, live execution adapter and complete safety evidence are required. Local wallet sessions must never be copied into public server environment variables.
 3. Gift escrow: Solidity prototype compiles but is not audited, behaviorally tested or deployed. No gifts can be funded or claimed yet.
 4. Vault and salary automations: saved plans only; no transfers, subscription or rebalance execution is active.
